@@ -225,6 +225,15 @@ if (conflict !== null) {
 
 // Optional: delete a booking by ID
 // =====================================
+app.delete('/api/bookings', (req, res) => {
+  writeBookings([]);
+
+  return res.json({
+    status: 'success',
+    message: 'รีเซ็ตรายการจองทั้งหมดเรียบร้อยแล้ว'
+  });
+});
+
 // DELETE: ลบรายการจอง
 // =====================================
 
