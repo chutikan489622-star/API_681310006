@@ -307,12 +307,16 @@ app.delete('/api/bookings/:id', (req, res) => {
 // เปิดหน้าเว็บ
 // =====================================
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'Index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // =====================================
 // Start Server
 // =====================================
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(
