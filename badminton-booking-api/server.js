@@ -313,7 +313,12 @@ app.get('/', (req, res) => {
 // =====================================
 // Start Server
 // =====================================
-app.listen(PORT, () => {
-  console.log(`Badminton Booking server running at http://localhost:${PORT}`);
-  console.log(`API health check: http://localhost:${PORT}/api/health`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(
+      `Badminton Booking server running at http://localhost:${PORT}`
+    );
+  });
+}
+
+module.exports = app;
