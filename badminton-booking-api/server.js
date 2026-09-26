@@ -310,13 +310,6 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// =====================================
-// Start Server
-// =====================================
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(
