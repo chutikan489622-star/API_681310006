@@ -305,22 +305,15 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(
-      `Badminton Booking server running at http://localhost:${PORT}`
-    );
-  });
-}
-
-// เพิ่ม Route หน้าแรกเพื่อให้ทดสอบได้ว่า API ทำงานแล้ว
 app.get('/', (req, res) => {
   res.send('API Running Successfully!');
 });
+
 if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+  });
 }
 
 module.exports = app;
-
 
