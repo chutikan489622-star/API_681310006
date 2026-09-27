@@ -9,35 +9,201 @@ const DATA_FILE = path.join(__dirname, 'db.json');
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// ฟังก์ชันอ่านข้อมูลแบบ Safe Read
+// In-memory fallback สำหรับ Serverless Environment (Vercel)
+let inMemoryBookings = null;
+
 function readBookings() {
+  if (inMemoryBookings !== null) {
+    return inMemoryBookings;
+  }
   try {
-    if (!fs.existsSync(DATA_FILE)) return [];
+    if (!fs.existsSync(DATA_FILE)) {
+      inMemoryBookings = [];
+      return inMemoryBookings;
+    }
     const raw = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(raw);
+    inMemoryBookings = JSON.parse(raw || '[]');
+    return inMemoryBookings;
   } catch (error) {
-    console.error('Error reading db.json:', error.message);
-    return [];
+    console.error('อ่าน db.json ไม่สำเร็จ:', error.message);
+    inMemoryBookings = [];
+    return inMemoryBookings;
   }
 }
 
-// หน้าแรกสำหรับทดสอบว่า API รันติดไหม
-app.get('/', (req, res) => {
-  res.send('API Running Successfully!');
+function writeBookings(data) {
+  inMemoryBookings = data;
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (error) {
+    // บน Vercel file system เป็น Read-Only จะเข้า catch นี้ แต่อย่างน้อยข้อมูลยังอยู่ใน inMemoryBookings
+    console.warn('ไม่สามารถเขียนลงดิสก์ได้ (Serverless Environment):', error.message);
+  }
+}
+
+function toMinutes(value) {
+  const text = String(value);
+  const colon = text.indexOf(':');
+  const hour = Number(text.substring(0, colon));
+  const minute = Number(text.substring(colon + 1));
+  return hour * 60 + minute;
+}
+
+function overlaps(startA, endA, startB, endB) {
+  return toMinutes(startA) < toMinutes(endB) && toMinutes(endA) > toMinutes(startB);
+}
+
+function isValidTime(value) {
+  return /^\d{2}:\d{2}$/.test(value) && toMinutes(value) >= 0 && toMinutes(value) <= 1439;
+}
+
+function isValidDate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00`).getTime());
+}
+
+function bubbleSortBookings(bookings) {
+  for (let i = 0; i < bookings.length - 1; i++) {
+    for (let j = 0; j < bookings.length - 1 - i; j++) {
+      const current = bookings[j].booking_date + ' ' + bookings[j].start_time;
+      const next = bookings[j + 1].booking_date + ' ' + bookings[j + 1].start_time;
+
+      if (current > next) {
+        const temp = bookings[j];
+        bookings[j] = bookings[j + 1];
+        bookings[j + 1] = temp;
+      }
+    }
+  }
+  return bookings;
+}
+
+// API Routes
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'success', message: 'API is running' });
 });
 
-// ดึงข้อมูลทั้งหมด
 app.get('/api/bookings', (req, res) => {
-  const data = readBookings();
-  res.json(data);
+  const bookings = readBookings();
+  bubbleSortBookings(bookings);
+  res.json({
+    status: 'success',
+    data: bookings
+  });
 });
 
-// รัน listen เฉพาะตอนเปิดทดสอบในเครื่อง local เท่านั้น
-if (process.env.NODE_ENV !== 'production') {
+app.post('/api/bookings', (req, res) => {
+  const { court_id, customer_name, phone, booking_date, start_time, end_time } = req.body || {};
+
+  const courtId = Number(court_id);
+  const name = String(customer_name || '').trim();
+  const tel = String(phone || '').trim();
+
+  if (!Number.isInteger(courtId) || courtId < 1 || courtId > 4) {
+    return res.status(400).json({ status: 'error', message: 'กรุณาเลือกคอร์ดให้ถูกต้อง' });
+  }
+
+  if (!name || !tel || !booking_date || !start_time || !end_time) {
+    return res.status(400).json({ status: 'error', message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
+  }
+
+  if (!isValidDate(booking_date)) {
+    return res.status(400).json({ status: 'error', message: 'รูปแบบวันที่ไม่ถูกต้อง' });
+  }
+
+  if (!isValidTime(start_time) || !isValidTime(end_time) || toMinutes(start_time) >= toMinutes(end_time)) {
+    return res.status(400).json({ status: 'error', message: 'ช่วงเวลาไม่ถูกต้อง' });
+  }
+
+  const bookings = readBookings();
+  let conflict = null;
+
+  for (let i = 0; i < bookings.length; i++) {
+    const item = bookings[i];
+    if (
+      Number(item.court_id) === courtId &&
+      item.booking_date === booking_date &&
+      overlaps(start_time, end_time, item.start_time, item.end_time)
+    ) {
+      conflict = item;
+      break;
+    }
+  }
+
+  if (conflict !== null) {
+    return res.status(409).json({
+      status: 'error',
+      message: `คอร์ด ${courtId} ถูกจองช่วง ${conflict.start_time} - ${conflict.end_time} แล้ว`
+    });
+  }
+
+  const booking = {
+    id: Date.now(),
+    court_id: courtId,
+    customer_name: name,
+    phone: tel,
+    booking_date,
+    start_time,
+    end_time,
+    created_at: new Date().toISOString()
+  };
+
+  bookings.push(booking);
+  writeBookings(bookings);
+
+  return res.status(201).json({
+    status: 'success',
+    message: 'บันทึกการจองเรียบร้อยแล้ว',
+    data: booking
+  });
+});
+
+app.delete('/api/bookings', (req, res) => {
+  writeBookings([]);
+  return res.json({
+    status: 'success',
+    message: 'รีเซ็ตรายการจองทั้งหมดเรียบร้อยแล้ว'
+  });
+});
+
+app.delete('/api/bookings/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const bookings = readBookings();
+  const next = [];
+  let found = false;
+
+  for (let i = 0; i < bookings.length; i++) {
+    const item = bookings[i];
+    if (Number(item.id) === id) {
+      found = true;
+    } else {
+      next.push(item);
+    }
+  }
+
+  if (!found) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'ไม่พบรายการจอง'
+    });
+  }
+
+  writeBookings(next);
+
+  res.json({
+    status: 'success',
+    message: 'ลบรายการจองแล้ว'
+  });
+});
+
+// Front-end Route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`Badminton Booking server running at http://localhost:${PORT}`);
   });
 }
 
-// ต้องส่งออก app เป็นโมดูลสำหรับ Vercel Serverless
 module.exports = app;
