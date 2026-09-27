@@ -195,9 +195,9 @@ app.delete('/api/bookings/:id', (req, res) => {
   });
 });
 
-// Front-end Route
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+// Default API Route
+app.get('/api', (req, res) => {
+  res.json({ status: 'success', message: 'Badminton Booking API is running' });
 });
 
 if (require.main === module) {
