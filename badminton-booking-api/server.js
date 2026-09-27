@@ -282,7 +282,6 @@ app.delete('/api/bookings/:id', (req, res) => {
   // บันทึก Array ใหม่
   // ===================================
 
-  writeBookings(next);
 
 
   res.json({
