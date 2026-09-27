@@ -305,7 +305,12 @@ app.delete('/api/bookings/:id', (req, res) => {
 });
 // =====================================
 // เปิดหน้าเว็บ
-// =====================================
+// ====================================
+const path = require('path');
+
+// ให้ Express ให้บริการไฟล์ static (เช่น index.html)
+app.use(express.static(path.join(__dirname)));
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -319,3 +324,7 @@ if (require.main === module) {
 }
 
 module.exports = app;
+// เพิ่ม Route หน้าแรกเพื่อให้ทดสอบได้ว่า API ทำงานแล้ว
+app.get('/', (req, res) => {
+  res.send('API Running Successfully!');
+});
