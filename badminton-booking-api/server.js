@@ -296,7 +296,7 @@ app.delete('/api/bookings/:id', (req, res) => {
 // =====================================
 // เปิดหน้าเว็บ
 // ====================================
-const path = require('path');
+
 
 // ให้ Express ให้บริการไฟล์ static (เช่น index.html)
 app.use(express.static(path.join(__dirname)));
