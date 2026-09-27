@@ -10,21 +10,15 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 function readBookings() {
-  if (!fs.existsSync(DATA_FILE)) return [];
   try {
+    if (!fs.existsSync(DATA_FILE)) return [];
     const raw = fs.readFileSync(DATA_FILE, 'utf8');
-    const data = JSON.parse(raw);
-    return Array.isArray(data) ? data : [];
+    return JSON.parse(raw);
   } catch (error) {
     console.error('อ่าน db.json ไม่สำเร็จ:', error.message);
     return [];
   }
 }
-
-function writeBookings(bookings) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(bookings, null, 2), 'utf8');
-}
-
 function toMinutes(value) {
 
   const text = String(value);
@@ -211,10 +205,10 @@ if (conflict !== null) {
     created_at: new Date().toISOString()
   };
 
-  bookings[bookings.length] = booking;
-  writeBookings(bookings);
+ 
+bookings[bookings.length] = booking;
 
-  return res.status(201).json({
+ return res.status(201).json({
     status: 'success',
     message: 'บันทึกการจองเรียบร้อยแล้ว',
     data: booking
@@ -226,14 +220,11 @@ if (conflict !== null) {
 // Optional: delete a booking by ID
 // =====================================
 app.delete('/api/bookings', (req, res) => {
-  writeBookings([]);
-
-  return res.json({
-    status: 'success',
-    message: 'รีเซ็ตรายการจองทั้งหมดเรียบร้อยแล้ว'
-  });
+    return res.json({
+        status: 'success',
+        message: 'รีเซ็ตรายการจองทั้งหมดเรียบร้อยแล้ว'
+    });
 });
-
 // DELETE: ลบรายการจอง
 // =====================================
 
